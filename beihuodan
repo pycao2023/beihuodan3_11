@@ -1,0 +1,404 @@
+import datetime
+import re
+import time
+import tkinter
+import pinyin
+import pandas
+from win32com import client as win32
+import pandas as pd
+from openpyxl.utils import cell
+from openpyxl.styles import Alignment,Border,Side
+from tkinter import filedialog
+import openpyxl
+import os
+import win32file
+from win32file import *
+import tkinter as tk
+import numpy as np
+#import wx_test3_4
+#判断文件是否出于打开状态
+def is_open(filename):
+        try:
+            # 首先获得句柄
+            vHandle = win32file.CreateFile(filename,GENERIC_READ,0,None,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,None)
+            # 判断句柄是否等于INVALID_HANDLE_VALUE
+            print('检测文件是否打开',vHandle)
+            if int(vHandle) == INVALID_HANDLE_VALUE:
+                print("# file is already open")
+                return False  # file is already open
+           # win32file.CloseHandle(vHandle)
+        except Exception as e:
+            print('结果：',e)
+            return True
+#以时间为文件名保存文档
+def save_excle_time(work_book,f_save_path,filename):
+    now = datetime.datetime.now()
+    filetime = now.strftime("%Y-%m-%d")
+    #print(filetime)
+    f_save_path1=f_save_path+filetime+filename+'.xlsx'
+    work_book.save(f_save_path1)
+    return f_save_path1
+#设置单元格居中
+def set_center(work_sheet):
+    max_rows=work_sheet.max_row
+    max_cols=work_sheet.max_column
+    align=Alignment(horizontal='center',vertical='center')
+    for i in range(1,max_rows+1):
+        for j in range(1,max_cols+1):
+            work_sheet.cell(i,j).alignment=align
+#合并多余单元格
+def meger_u(worksheet):
+    i = 0
+    for r in range(2, worksheet.max_row + 1):
+        current_cell = worksheet.cell(row=r, column=1).value
+        previous_cell = worksheet.cell(row=r-1, column=1).value
+        if current_cell == previous_cell:
+            i+=1
+        elif i>0:
+            worksheet.merge_cells(start_row=r-i-1, start_column=1, end_row=r-1, end_column=1)
+            worksheet.merge_cells(start_row=r-i-1, start_column=4, end_row=r-1, end_column=4)
+            i=0
+        else:
+            continue
+#添加边框
+def border_side(worksheet):
+    for row in worksheet.iter_rows(min_row=worksheet.min_row,
+                                   max_col=worksheet.max_column,
+                                   max_row=worksheet.max_row,min_col=worksheet.min_column):
+           border= Border(left=Side(style='thin', color='000000'),
+                right=Side(style='thin', color='000000'),
+                top=Side(style='thin', color='000000'),
+                bottom=Side(style='thin', color='000000'))
+           for i in range(worksheet.max_column):
+              row[i].border=border
+#获取tk窗口选择的文件名
+def select_file():
+    selected_file_path = filedialog.askopenfilename()
+    select_path.set(selected_file_path)
+#插入新厂家名
+def insertnew_factory():
+    inert_name=''
+    alpha_name=''
+    def submit_inset():
+        inert_name=inert_name_En.get()
+        alpha_name=alpha_name_En.get()
+        for key,value in dict_ls.items():
+            if value == inert_name:
+                tk.messagebox.askyesnocancel("添加厂家","厂家已存在！")
+                return
+        dict_ls[alpha_name]=inert_name
+       # print(dict_ls)
+        iroot.destroy()
+    iroot=tk.Tk()
+    iroot.geometry("300x300+400+250")
+    tk.Label(iroot, text="      厂家名：").grid(column=0, row=0, rowspan=3)
+    inert_name_En=tk.Entry(iroot)
+    inert_name_En.grid(column=1, row=0, rowspan=3)
+    tk.Label(iroot, text="字母缩写：").grid(column=0, row=4, rowspan=3)
+    alpha_name_En=tk.Entry(iroot)
+    alpha_name_En.grid(column=1, row=4, rowspan=3)
+    tk.Button(iroot, text="提交", command=submit_inset).grid(row=0, column=2)
+#判断是否是数字
+def is_number(x):
+    try:
+        print('判断是否是数字')
+        float(x)
+        return True
+    except ValueError:
+        print('不是数字')
+        return False
+#如果打开的表格不是xlsx格式，这将其转换
+def exchange(dir):
+    path = os.path.abspath(__file__).split('src')[0]
+    path = os.path.join(path,'file','source_file',dir)
+    path=os.path.dirname(path)+'/'
+    files=os.listdir(path)
+    #for file_name in files:
+    if dir.rsplit('.',1)[-1]=='xls':
+            fname=os.path.join(path,dir)
+            excel=win32.gencache.EnsureDispatch('Excel.Application')
+            wb=excel.Workbooks.Open(fname)
+            wb.SaveAs(fname+"x",FileFormat=51)
+            wb.Close()
+            excel.Application.Quit()
+    print(fname)
+    return fname+"x"
+#中断
+def key_pressed(event):
+    if event.keysym == 'Escape':
+        root.destroy()
+#选择维护表
+def select_M_table():
+    os.startfile(M_path)
+#厂家名称维护表
+dict_ls={'NJM':'南街摩卡','PS-':'璞素','PZP':'派中派','QQJ':'青青家','SSS':'莎莎舒','SSY':'时尚一对','TX':'艾咪妮','XXM':'西西米娜','YCJ':'一场即兴','YSF':'艺思菲尔',
+'DYJ':'大眼睛','OFS':'欧菲丝曼','PLN':'漂亮女孩','MOK':'摩卡','365':'赫本','521':'赫本','YMH':'一米灰','MK-':'麦昆','PS1':'璞素','TX0':'艾咪妮',
+'DTN':'迪特尼','DMJ':'大麦家','TX-':'艾咪妮','PDL':'潘多拉','MX-':'MOMO','XPJ':'小皮匠','XDD':'夏定定','DB-':'帝铂','MBJ':'漫步佳人','DG-':'艾咪妮',
+'JL-':'锦鲤','K18':'一米灰','RXX':'蓉欣','mx2':'MOMO','YS-':'原色','ZYY':'足悠悠','AF-':'艾妃','DFN':'蒂芙尼','H-8':'一场即兴','MOM':'MOMO',
+'TYM':'天伊美','HB-':'赫本','BL-':'宝拉','BT-':'冰图','DY-':'大洋','F73':'金女人','HBP':'黑白配','HCY':'花晨月一号店','HHX':'好好先生','IME':'IMEME',
+'JD-':'娇点','JNR':'金女人','KL-':'卡琳露娜','KLL':'卡琳露娜','LDK':'莎莎舒','L71':'大眼睛','ML-':'迷恋','MLD':'魅岚迪','MQ-':'美茜','MS-':'迷上','AM-':'阿喵',
+'WC-':'王巢','DQ-':'冬青','JZ-':'九尊','YCJ':'一场即兴','LG-':'蓝哥','DQ1':'冬青','MSY':'美诗雅','WC-':'王巢','YE-':'宝拉','DQ1':'冬青','093':'赫本','SY-':'爽缘','XY-':'新月','MT-':'麦田','DQ-':'冬青','MJH':'满江红','XT-':'夏天','YY-':'依一','ASZ':'艾尚足','MSF':'玛莎妃','MXS':'沐先生'
+}
+#厂家档口维护表
+dict_doorls={'美茜':'2楼2042','一场即兴':'3楼3159','时尚一对':'3楼3002','美诗雅':'2楼2076','帝铂':'3楼3001号（3楼南中庭）','璞素':'3楼3043','黑白配':'3楼3087','一米灰':'3楼3151号','派中派':'3楼3155','南街摩卡':'3楼3205号（3楼南中庭）',
+'摩卡':'负1楼10119号','MOMO':'负一楼','大洋':'负一楼','好好先生':'负一楼','赫本':'负一楼','花晨月二号店':'负一楼','卡琳':'负一楼','夏定定':'负一楼','冰图':'1楼1061','好好先生':'负1楼10011号',
+'花晨月一号店':'3楼3085号','花晨月二号店':'负一楼10003号','潘多拉':'负一楼','南街摩':'3楼3205号（3楼南中庭）','麦昆':'负一楼','大麦家':'负一楼','漂亮女孩':'2楼2074','锦鲤':'负1楼10041','迪特尼':'1楼东门',
+'西西米娜':'3楼3022','左艾右':'2楼2039','卡琳露娜':'负一楼','艺思菲尔':'5楼5078','足悠悠':'3楼3055号','艺思菲尔':'5楼5078','青青家':'负一楼','艾妃':'1楼1053（西门）','IMEME':'1楼1035西大门 ）',
+'阿喵':'负一楼','蒂芙尼':'3楼3151号','王巢':'负1楼10070号','依一':'负1楼10122号','满江红':'负1楼10075','可可':'2楼2112','冬青':'负一楼','夏天':'1楼1011','爽缘':'3楼3209号','初范儿':'2楼2036-',
+'莎莎舒':'3楼3139','迷恋':'3楼3139','宝拉':'2楼2218','欧菲丝曼':'3楼3139','沐先生':'负1楼10056号','玛莎妃':'负1楼10091','艾尚足':'1楼1202','艾咪妮':'负一楼','蓝哥':'2楼2041号','原色':'负一楼f010-014','新月':'2楼2147'
+}
+# #发送给厂家
+# def fasong_1():
+#     print(var1.get())
+#     mes_lab.config(text='开始发送')
+#     fpath=select_path.get()
+#     if var1.get()==2:
+#         fpath = filedialog.askopenfilename()
+#         print(f_path)
+#         mes_var.set(f_path)
+#     print(fpath)
+#     try:
+#         wx_test3_4.fasong(fpath,mes_lab,root)
+#     except Exception as e:
+#         b=''
+#         output_string = str(e)
+#         for i in range(0, len(output_string), 30):
+#             b=b+(output_string[i:i + 30])
+#         print(b)
+#         mes_lab.config(text='发送失败！\n请选择正确的表格.\n'+fpath+'\n'+ b[0:45]+'\n'+b[46:900]+'\n'+b[91:])
+#主体函数
+def process():
+    f_path = select_path.get()
+    f_save_path=os.path.dirname(f_path)+'/'   #r'D:\陈摸鱼\备货单\2023\2月\ '
+    #如果打开的是xls文件格式，则将其转换为xlsx
+    try:
+        f_xl=openpyxl.load_workbook(f_path)
+    except:
+        f_path=exchange(f_path)
+        f_xl = openpyxl.load_workbook(f_path)
+    wt_sheet=f_xl.active
+    ws1=f_xl.create_sheet('厂家地址')
+    #============================
+    #取消前4行所有的合并单元格
+    mc_range_list = [str(item) for item in wt_sheet.merged_cells.ranges]
+    for mc in mc_range_list:
+        top_left, bot_right = mc.split(":")
+        top_left_col, top_left_row = wt_sheet[top_left].column, wt_sheet[top_left].row  # (1, 1,)
+        #bot_right_col, bot_right_row = wt_sheet[bot_right].column, wt_sheet[bot_right].row  # (1, 12,)
+        wt_sheet.unmerge_cells(mc)
+    wt_sheet.delete_rows(1, 4)
+    #删除多余的列
+    i=0
+    list_colname=['  名称  ','    商品编码    ','    单品数量    ','    合计数量    ']
+    #for col in wt_sheet.iter_rows(min_col=1,min_row=1,max_col=wt_sheet.max_column,max_row=1):
+    for col in range(1,wt_sheet.max_column+1):
+        del_col_tag=True
+        col_val=wt_sheet.cell(row=1,column=col).value
+        for ls in list_colname:
+            #print(ls)
+            if col_val == ls:
+                del_col_tag=False
+                continue
+        if del_col_tag :
+            i+=1
+            wt_sheet.delete_cols(col)
+    if i>0 :
+        wt_sheet.delete_cols(3)
+    #创建新文档保存娇点
+    wb_jd = openpyxl.Workbook()
+    ws_jd = wb_jd.active
+    #处理娇点表格
+    JD_tag=0
+    for row in wt_sheet.iter_rows(min_row=2,min_col=1, max_col=2, max_row=wt_sheet.max_row):
+        tem=row[1].value[0:3]
+        if tem == 'JD-':
+            if JD_tag==0:
+                jd_start = row[0].coordinate
+                JD_tag=1
+            #提取货号,B列的货号提取后赋值给A列
+            product_name=re.findall('JD-(.*?)J',row[1].value)
+            if type(row[0]).__name__ != 'MergedCell':#row[0].value != None :  #如果是合并的单元格，row[0].value=None
+                if len(product_name) != 0:    #如果不是娇点的货号则停止，前提是备货单到处是按名称排序好的
+                    row[0].value = product_name[0]
+            jd_end = row[1].coordinate
+    #定位单元格转换为数字坐标
+    start_1=cell.coordinate_to_tuple(jd_start)
+    end_1=cell.coordinate_to_tuple(jd_end)
+    #复制统计好的娇点数据到新表格
+    mincol=start_1[1]
+    maxcol=end_1[1]+2
+    minrow=start_1[0]
+    maxrow=end_1[0]
+    i=1
+    for row1 in wt_sheet.iter_rows(min_col=mincol, max_col=maxcol, min_row=minrow, max_row=maxrow,values_only=True):
+        i+=1
+        tem =row1[1][0:3]
+        if tem == 'JD-':
+            for col in range(4):
+                   row_1=i-1
+                   col_1=col+1
+                   ws_jd.cell(row=row_1,column=col_1).value=row1[col]
+    #根据商品编码设置厂家名称
+    for row in wt_sheet.iter_rows(min_row=2, max_col=2, min_col=2,max_row=wt_sheet.max_row):
+        tem=row[0].value[0:3]
+        tem_coordinte=row[0].coordinate
+        tem_row_start=cell.coordinate_to_tuple(tem_coordinte)
+        fac_name_tag=True
+        for key,value in dict_ls.items():
+            if tem == key:
+                wt_sheet.cell(row=tem_row_start[0],column=1,value=value)
+                fac_name_tag=False
+        # 花晨月二号店单独处理
+        if wt_sheet.cell(row=tem_row_start[0],column=2).value[0:5]=='HCY-K':
+            wt_sheet.cell(row=tem_row_start[0], column=1, value='花晨月二号店')
+            fac_name_tag=False
+        if fac_name_tag:
+            print(wt_sheet.cell(row=tem_row_start[0], column=1))
+            wt_sheet.cell(row=tem_row_start[0], column=1, value='-')
+    ws1.cell(row=1, column=1, value='门牌号')
+    ws1.cell(row=1, column=2, value='厂家')
+    wt_sheet.cell(row=1, column=1, value='商家')
+    wt_sheet.cell(row=1, column=2, value='商品')
+    wt_sheet.cell(row=1, column=3, value='数量')
+
+    #如果勾选了优先发货
+    if var.get()==1:
+        try:
+            temp = save_excle_time(f_xl, f_save_path, '')
+            os.startfile(temp)
+        except:
+            tk.messagebox.showinfo('','表格被打开，无法保存，请关闭后再试！')
+        youxian_tag = True
+        #判断文档关闭后才继续下一步，不然会报错
+        while youxian_tag:
+              time.sleep(2)
+              youxian_tag = is_open(temp)
+        f_xl=openpyxl.load_workbook(temp)
+        wt_sheet = f_xl.active
+        ws1 = f_xl['厂家地址']
+    #提取厂家名唯一项
+    tem_tag1=False  #初始化重复标识
+    for row in wt_sheet.iter_rows(min_col=1,max_col=1,min_row=2,max_row=wt_sheet.max_row):
+        i_tag=1
+        x=row[0].value
+        tem_tag1 = False
+        for j in ws1.iter_rows(min_col=2,max_col=2,min_row=2,max_row=ws1.max_row):
+            if j[0].value==row[0].value:
+                tem_tag1=True
+                break
+        if tem_tag1:
+            continue
+        else:
+            nrow = ws1.max_row + 1
+            ws1.cell(nrow,2).value=row[0].value
+            tem_tag1=False
+    #根据厂家名称设置档口号
+    for row in ws1.iter_rows(min_row=2, max_col=2, min_col=2,max_row=ws1.max_row):
+        tem=row[0].value[0:7]
+        tem_coordinte=row[0].coordinate
+        tem_row_start=cell.coordinate_to_tuple(tem_coordinte)
+        fac_name_tag=True
+        for key,value in dict_doorls.items():
+            if tem == key:
+                ws1.cell(row=tem_row_start[0],column=1,value=value)
+                fac_name_tag=False
+        if fac_name_tag:
+            ws1.cell(row=tem_row_start[0], column=1, value='-')
+            fac_name_tag=False
+    #排序
+    #先保存openpyxl处理好的表格，再用pandas打开处理排序
+    temp=save_excle_time(f_xl,f_save_path,'')
+    #用pandas排序
+    df=pd.read_excel(temp,sheet_name=f_xl.sheetnames[0])
+    df1=pd.read_excel(temp,sheet_name=f_xl.sheetnames[1])
+    #将B列中有相同值的行进行相加
+    if var1.get()==1:
+        df['数量'] = df['数量'].apply(lambda x: x if is_number(x) else 1) #如果有字符串，pandas会将整列都按字符串处理，相同行的累加将变成字符串拼接
+        df['数量'] = df['数量'].apply(pd.to_numeric)                      #所以需要将该列重新变成数字
+        # df.groupby('商品', dropna=False)['数量'].transform(sum)
+        df['数量'] = df.groupby('商品')['数量'].transform(sum)
+        df = df.drop_duplicates(subset='商品')
+    df.sort_values(by='商品', ascending=True,inplace=True)
+    df.sort_values(by='商家', ascending=True,inplace=True)
+    df1.sort_values(by='门牌号',ascending=False,inplace=True)
+    writer=pd.ExcelWriter(temp)
+    with pd.ExcelWriter(temp) as writer:
+        df.to_excel(writer, sheet_name=f_xl.sheetnames[0], index=False)
+        df1.to_excel(writer, sheet_name=f_xl.sheetnames[1], index=False)
+    #重新打开排好序的表格
+    f_xl=openpyxl.load_workbook(temp,data_only=True)
+    wt_sheet=f_xl.active
+    ws1=f_xl['厂家地址']
+    #设置行高列宽
+    wt_sheet.column_dimensions['A'].width=13
+    wt_sheet.column_dimensions['B'].width=26.5
+    ws_jd.column_dimensions['B'].width=26
+    ws1.column_dimensions['A'].width=20
+    ws1.column_dimensions['B'].width=12.5
+    for row in range(2,ws1.max_row):
+      ws1.row_dimensions[row].height=18
+    for row in range(2,wt_sheet.max_row):
+      wt_sheet.row_dimensions[row].height=14.5
+    for row in range(2, ws_jd.max_row):
+      ws_jd.row_dimensions[row].height = 15
+    # 合并娇点表格多余的行，保持整洁
+    meger_u(ws_jd)
+    set_center(wt_sheet)
+    set_center(ws_jd)
+
+    border_side(ws1)
+    border_side(wt_sheet)
+    border_side(ws_jd)
+    wt_sheet.delete_cols(4)
+    #保存处理好的表格到文档，如果前一步打开的文档没有关闭，则无法进行保存
+    save_tag=True
+    while save_tag:
+        try:
+          temp=save_excle_time(f_xl,f_save_path,'')
+          temp1=save_excle_time(wb_jd,f_save_path,'娇点')
+          ret=tk.messagebox.askyesno('',"成功！是否打开表格？")
+          select_path.set(temp)
+          if ret:
+              os.startfile(temp)
+          save_tag=False
+        except:
+            save_tag=True
+            tk.messagebox.askyesnocancel("Test1","表格无法保存，请关闭相关表格")
+    f_entry.delete(0,tk.END)
+
+f_path=''
+root = tk.Tk()
+root.title('陈摸鱼备货单统计')
+var=tk.IntVar()
+var1=tk.IntVar()
+mes_var=tk.StringVar()
+mes_var.set('陈摸鱼手工女鞋')
+var.set(0)
+var1.set(0)
+try:
+    root.wm_iconbitmap('cmy.ico')
+    root.iconbitmap('cmy.ico')
+except:
+    print('ico不存在')
+root.geometry("400x200+800+200")
+select_path = tkinter.StringVar()
+tk.Label(root, text="文件路径：").grid(column=0, row=0,columnspan=2)
+f_entry=tk.Entry(root, textvariable = select_path,width=30)
+f_entry.grid(column=2, row=0, columnspan=5)
+tk.Button(root, text="选择文件", command=select_file).grid(row=0, column=7)
+tk.Button(root, text="开始处理",command=process).grid(row=4, column=3)
+tk.Button(root,text='添加厂家名').grid(row=4, column=7)
+# tk.Label(root,text='按ESC键退出！').grid(column=4, row=9)
+youxian_btn= tk.Checkbutton(root,text='添加优先发货',variable=var,onvalue=1)
+youxian_btn.grid(column=2, row=4, rowspan=1)
+dupl_btn= tk.Checkbutton(root,text='累加相同项',variable=var1,onvalue=1)
+dupl_btn.grid(column=1, row=8, rowspan=1)
+tk.Label(root, text="数量列不能出现文字等非数字字符！",fg='red').grid(column=2, row=8,columnspan=4)
+M_btn= tk.Button(root,text='打开维护表',command=select_M_table).grid(column=3, row=8)
+#tk.Button(root,text='发送给厂家',command=fasong_1).grid(column=4, row=5, rowspan=1)
+#newxl_btn= tk.Checkbutton(root,text='手动选择',variable=var1,onvalue=2)
+#newxl_btn.grid(column=4, row=6, rowspan=1)
+#mes_lab=tk.Label(root,bg='lightgray',height=6,width=40)
+#mes_lab.grid(column=2, row=5,rowspan=4)
+root.bind('<Key>', key_pressed)
+root.mainloop()
